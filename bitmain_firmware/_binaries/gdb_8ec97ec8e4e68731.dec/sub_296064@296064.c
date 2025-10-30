@@ -1,0 +1,7 @@
+int __fastcall sub_296064(int a1, int a2)
+{
+  if ( dword_4900DC && dword_4900DC == dword_4900D8 )
+    return sub_295ED4(a1, a2);
+  else
+    return sub_295C9C(a1, a2);
+}

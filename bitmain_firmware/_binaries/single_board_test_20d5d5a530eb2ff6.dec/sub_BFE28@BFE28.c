@@ -1,0 +1,8 @@
+int __fastcall sub_BFE28(int result, _DWORD *a2, _DWORD *a3)
+{
+  if ( a2 )
+    *a2 = *(_DWORD *)(result + 20);
+  if ( a3 )
+    *a3 = *(_DWORD *)(result + 24);
+  return result;
+}

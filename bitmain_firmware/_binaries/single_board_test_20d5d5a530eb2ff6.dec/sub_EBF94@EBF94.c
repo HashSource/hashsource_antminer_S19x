@@ -1,0 +1,4 @@
+int __fastcall sub_EBF94(int a1)
+{
+  return sub_110238(*(_DWORD *)(a1 + 4));
+}

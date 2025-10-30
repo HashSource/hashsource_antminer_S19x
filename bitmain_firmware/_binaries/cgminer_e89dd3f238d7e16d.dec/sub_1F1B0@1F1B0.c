@@ -1,0 +1,4 @@
+bool __fastcall sub_1F1B0(_DWORD *a1)
+{
+  return a1 == (_DWORD *)*a1;
+}

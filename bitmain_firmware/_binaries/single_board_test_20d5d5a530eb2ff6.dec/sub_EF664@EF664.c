@@ -1,0 +1,4 @@
+int __fastcall sub_EF664(int a1)
+{
+  return sub_B17C4(a1, (int)PKCS7_ENC_CONTENT_it);
+}

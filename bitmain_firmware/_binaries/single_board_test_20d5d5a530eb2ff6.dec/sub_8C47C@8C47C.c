@@ -1,0 +1,4 @@
+int __fastcall sub_8C47C(int a1)
+{
+  return *(_DWORD *)(a1 + 264);
+}

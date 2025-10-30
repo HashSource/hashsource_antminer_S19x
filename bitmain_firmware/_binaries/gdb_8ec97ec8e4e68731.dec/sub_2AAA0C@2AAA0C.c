@@ -1,0 +1,4 @@
+int __fastcall sub_2AAA0C(int a1, int a2, int a3)
+{
+  return sub_2AA92C(a1, a2, a3, dword_4707F0);
+}

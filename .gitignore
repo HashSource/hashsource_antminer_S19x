@@ -10,4 +10,6 @@
 _ghidra_project
 _lib_copies
 symbols
-_decompile.log
+
+# Logs
+*.log

@@ -1,0 +1,46 @@
+int __fastcall sub_157990(int result, int a2)
+{
+  *(_WORD *)result = *(_DWORD *)a2;
+  *(_BYTE *)(result + 2) = *(_WORD *)(a2 + 2);
+  *(_BYTE *)(result + 3) = *(_BYTE *)(a2 + 3);
+  *(_WORD *)(result + 4) = *(_DWORD *)(a2 + 4);
+  *(_BYTE *)(result + 6) = *(_WORD *)(a2 + 6);
+  *(_BYTE *)(result + 7) = *(_BYTE *)(a2 + 7);
+  *(_WORD *)(result + 8) = *(_DWORD *)(a2 + 8);
+  *(_BYTE *)(result + 10) = *(_WORD *)(a2 + 10);
+  *(_BYTE *)(result + 11) = *(_BYTE *)(a2 + 11);
+  *(_WORD *)(result + 12) = *(_DWORD *)(a2 + 12);
+  *(_BYTE *)(result + 14) = *(_WORD *)(a2 + 14);
+  *(_BYTE *)(result + 15) = *(_BYTE *)(a2 + 15);
+  *(_WORD *)(result + 16) = *(_DWORD *)(a2 + 16);
+  *(_BYTE *)(result + 18) = *(_WORD *)(a2 + 18);
+  *(_BYTE *)(result + 19) = *(_BYTE *)(a2 + 19);
+  *(_WORD *)(result + 20) = *(_DWORD *)(a2 + 20);
+  *(_BYTE *)(result + 22) = *(_WORD *)(a2 + 22);
+  *(_BYTE *)(result + 23) = *(_BYTE *)(a2 + 23);
+  *(_WORD *)(result + 24) = *(_DWORD *)(a2 + 24);
+  *(_BYTE *)(result + 26) = *(_WORD *)(a2 + 26);
+  *(_BYTE *)(result + 27) = *(_BYTE *)(a2 + 27);
+  *(_WORD *)(result + 28) = *(_DWORD *)(a2 + 28);
+  *(_BYTE *)(result + 30) = *(_WORD *)(a2 + 30);
+  *(_BYTE *)(result + 31) = *(_BYTE *)(a2 + 31);
+  *(_WORD *)(result + 32) = *(_DWORD *)(a2 + 32);
+  *(_BYTE *)(result + 34) = *(_WORD *)(a2 + 34);
+  *(_BYTE *)(result + 35) = *(_BYTE *)(a2 + 35);
+  *(_WORD *)(result + 36) = *(_DWORD *)(a2 + 36);
+  *(_BYTE *)(result + 38) = *(_WORD *)(a2 + 38);
+  *(_BYTE *)(result + 39) = *(_BYTE *)(a2 + 39);
+  *(_WORD *)(result + 40) = *(_DWORD *)(a2 + 40);
+  *(_BYTE *)(result + 42) = *(_WORD *)(a2 + 42);
+  *(_BYTE *)(result + 43) = *(_BYTE *)(a2 + 43);
+  *(_WORD *)(result + 44) = *(_DWORD *)(a2 + 44);
+  *(_BYTE *)(result + 46) = *(_WORD *)(a2 + 46);
+  *(_BYTE *)(result + 47) = *(_BYTE *)(a2 + 47);
+  *(_WORD *)(result + 48) = *(_DWORD *)(a2 + 48);
+  *(_BYTE *)(result + 50) = *(_WORD *)(a2 + 50);
+  *(_BYTE *)(result + 51) = *(_BYTE *)(a2 + 51);
+  *(_WORD *)(result + 52) = *(_DWORD *)(a2 + 52);
+  *(_BYTE *)(result + 54) = *(_WORD *)(a2 + 54);
+  *(_BYTE *)(result + 55) = *(_BYTE *)(a2 + 55);
+  return result;
+}

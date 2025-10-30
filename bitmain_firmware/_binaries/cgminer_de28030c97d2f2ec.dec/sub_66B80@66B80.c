@@ -1,0 +1,8 @@
+int __fastcall sub_66B80(_DWORD *a1, unsigned int a2)
+{
+  if ( !a1 || *a1 != 1 )
+    return 0;
+  if ( a1[3] > a2 )
+    return *(_DWORD *)(a1[4] + 4 * a2);
+  return 0;
+}

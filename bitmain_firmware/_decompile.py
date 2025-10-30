@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Automated binary decompilation using Ghidra with library auto-import."""
+"""Automated binary decompilation using Ghidra, RetDec, and IDA Pro with library auto-import."""
 
 from __future__ import annotations
 
@@ -91,6 +91,8 @@ class DecompileStats:
     executables_failed: int = 0
     retdec_done: int = 0
     retdec_failed: int = 0
+    haruspex_done: int = 0
+    haruspex_failed: int = 0
 
     @property
     def total_processed(self) -> int:
@@ -630,6 +632,70 @@ def decompile_with_retdec(binary_path: Path) -> bool:
             return False
 
 
+def decompile_with_haruspex(binary_path: Path) -> bool:
+    """Decompile a binary using haruspex/IDA Pro.
+
+    haruspex creates output directories in BINARIES_DIR as <binary_name>.dec/
+
+    Args:
+        binary_path: Path to binary to decompile
+
+    Returns:
+        True if decompilation succeeded, False otherwise
+    """
+    with LOG_FILE.open("a", encoding="utf-8") as log:
+        log.write(f"\n{'=' * 80}\n")
+        log.write(f"IDA Pro/haruspex Decompiling: {binary_path.name}\n")
+        log.write(f"{'-' * 80}\n")
+        log.flush()
+
+        cmd = [
+            "timeout",
+            f"{TIMEOUT_SECONDS}s",
+            "haruspex",
+            binary_path.name,
+        ]
+
+        try:
+            with subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                cwd=BINARIES_DIR,
+            ) as process:
+                # Stream output line by line
+                if process.stdout:
+                    for line in process.stdout:
+                        log.write(line)
+                        log.flush()
+
+                returncode = process.wait()
+
+            log.write(f"\nReturn code: {returncode}\n")
+            log.flush()
+
+            if returncode != 0:
+                logging.error(
+                    f"haruspex failed to decompile {binary_path.name} (code {returncode})"
+                )
+            else:
+                # haruspex creates output as <binary_name>.dec/ in BINARIES_DIR
+                output_dir = BINARIES_DIR / f"{binary_path.name}.dec"
+                logging.info(f"  haruspex output: {output_dir}")
+
+            return returncode == 0
+
+        except (subprocess.TimeoutExpired, OSError) as e:
+            log.write(f"\nError: {e}\n")
+            log.flush()
+            logging.error(
+                f"Exception while decompiling {binary_path.name} with haruspex: {e}"
+            )
+            return False
+
+
 def process_files(
     files: list[Path], label: str, *, decompile: bool = False, analyze: bool = True
 ) -> tuple[int, int]:
@@ -723,11 +789,14 @@ def print_summary(
     logging.info(f"Libraries:       {lib_imported}/{lib_count} imported")
     logging.info(f"Ghidra:          {stats.executables_done}/{exe_count} decompiled")
     logging.info(f"RetDec:          {stats.retdec_done}/{exe_count} decompiled")
+    logging.info(f"IDA Pro:         {stats.haruspex_done}/{exe_count} decompiled")
     logging.info(f"Ghidra Failed:   {stats.executables_failed}")
     logging.info(f"RetDec Failed:   {stats.retdec_failed}")
+    logging.info(f"IDA Pro Failed:  {stats.haruspex_failed}")
     logging.info(f"Project:         {PROJECT_DIR / PROJECT_NAME}")
     logging.info(f"Ghidra Output:   {OUTPUT_PATH}")
     logging.info(f"RetDec Output:   {RETDEC_OUTPUT_PATH}")
+    logging.info(f"IDA Pro Output:  {BINARIES_DIR}/<binary>.dec/")
     logging.info(f"Log:             {LOG_FILE}")
     logging.info(f"Completed:       {datetime.now().isoformat()}")
     logging.info("=" * 60)
@@ -741,6 +810,7 @@ def main() -> int:
     2. Import only the new dependencies not yet imported
     3. Decompile the binary with Ghidra
     4. Decompile the binary with RetDec
+    5. Decompile the binary with IDA Pro/haruspex
 
     Returns:
         Exit code (0 for success, 1 for failure)
@@ -748,7 +818,7 @@ def main() -> int:
     setup_logging()
 
     logging.info("=" * 60)
-    logging.info("Automated Decompilation (Ghidra + RetDec)")
+    logging.info("Automated Decompilation (Ghidra + RetDec + IDA Pro)")
     logging.info("=" * 60)
     logging.info(f"Started: {datetime.now().isoformat()}")
     logging.info(f"Using Ghidra: {GHIDRA_PATH}")
@@ -759,6 +829,7 @@ def main() -> int:
         # Create necessary directories
         OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
         RETDEC_OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
+        # Note: haruspex creates its own output directories
         PROJECT_DIR.mkdir(parents=True, exist_ok=True)
 
         # Validate Ghidra installation
@@ -770,6 +841,27 @@ def main() -> int:
         if not RETDEC_DECOMPILER.exists():
             logging.error(f"RetDec decompiler not found: {RETDEC_DECOMPILER}")
             return 1
+
+        # Validate haruspex installation
+        try:
+            result = subprocess.run(
+                ["which", "haruspex"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                logging.warning("haruspex command not found in PATH")
+                logging.warning("IDA Pro decompilation will be skipped")
+                haruspex_available = False
+            else:
+                logging.info(f"Using haruspex: {result.stdout.strip()}")
+                haruspex_available = True
+        except (FileNotFoundError, OSError):
+            logging.warning(
+                "Failed to check for haruspex - IDA Pro decompilation will be skipped"
+            )
+            haruspex_available = False
 
         # Create library copies with SONAME for linking
         create_library_copies()
@@ -785,6 +877,7 @@ def main() -> int:
         # Process each executable: import dependencies, then decompile
         exe_ok = exe_fail = 0
         retdec_ok = retdec_fail = 0
+        haruspex_ok = haruspex_fail = 0
         total = len(executables)
 
         for i, exe_path in enumerate(executables, 1):
@@ -833,8 +926,18 @@ def main() -> int:
             else:
                 retdec_fail += 1
 
+            # Decompile the executable with IDA Pro/haruspex (if available)
+            if haruspex_available:
+                logging.info(f"  Decompiling with IDA Pro/haruspex: {exe_path.name}...")
+                if decompile_with_haruspex(exe_path):
+                    haruspex_ok += 1
+                else:
+                    haruspex_fail += 1
+
         # Print summary
-        stats = DecompileStats(exe_ok, exe_fail, retdec_ok, retdec_fail)
+        stats = DecompileStats(
+            exe_ok, exe_fail, retdec_ok, retdec_fail, haruspex_ok, haruspex_fail
+        )
         print_summary(stats, lib_import_ok, lib_import_ok + lib_import_fail, total)
 
         return 0 if stats.total_failed == 0 else 1
