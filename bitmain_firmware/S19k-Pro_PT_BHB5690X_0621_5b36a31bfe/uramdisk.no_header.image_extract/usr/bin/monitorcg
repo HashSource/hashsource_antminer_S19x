@@ -1,0 +1,17 @@
+#!/bin/sh
+#set -x
+check_inter="5s"
+while true; do
+	sleep $check_inter
+	#date
+	a="$(ps | grep single_board_test | grep -v 'grep single_board_test')"
+	if [ -z "$a" ] ; then
+		/etc/init.d/S70cgminer restart
+	fi
+
+	sleep $check_inter
+	b="$(ps | grep submit_result | grep -v 'grep submit_result')"
+	if [ -z "$b" ] ; then
+		/mnt/card/submit_result &
+	fi
+done

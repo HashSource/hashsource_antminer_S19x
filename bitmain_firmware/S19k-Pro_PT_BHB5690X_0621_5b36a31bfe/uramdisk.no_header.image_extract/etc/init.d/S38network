@@ -1,0 +1,93 @@
+#!/bin/sh -e
+
+function do_start()
+{
+    ValidHostnameRegex="^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9])$"
+    ValidIpAddress="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
+    if [ -s /config/network.conf ] ; then
+        dhcp=`cat /config/network.conf | grep dhcp |awk -F '=' '{print $2}'`
+        if [ "$dhcp" = "" ] ; then
+            echo "static mode"
+            ipaddress=`cat /config/network.conf | grep ipaddress |awk -F '=' '{print $2}'|grep -o "$ValidIpAddress"`
+            gateway=`cat /config/network.conf | grep gateway |awk -F '=' '{print $2}'|grep -o "$ValidIpAddress"`
+            netmask=`cat /config/network.conf | grep netmask |awk -F '=' '{print $2}'|grep -o "$ValidIpAddress"`
+            dnsservers=`cat /config/network.conf | grep dnsservers |awk -F '=' '{print $2}'`
+            echo $ipaddress  $gateway $netmask $dnsservers
+        else
+            dhcp=true
+        fi
+        hostname=`cat /config/network.conf | grep hostname |awk -F '=' '{print $2}'|egrep "$ValidHostnameRegex"`
+    else
+        dhcp=true
+        hostname=antMiner
+    fi
+    
+    if [ -n "$hostname" ] ; then
+    	hostname $hostname
+    	echo $hostname > /etc/hostname
+    fi
+    
+    # Setup link 
+    ip link set lo up
+    ip link set eth0 up
+    
+    ip addr flush dev eth0
+    
+    #if [ ! -f /config/mac ];then
+		echo "inzhiju mode,this should not happen!!!"
+    	mac=`id2mac`
+    	echo $mac > /config/mac
+        sync
+    #else
+        mac=`cat /config/mac | grep -o  "[a-f0-9A-F]\\([a-f0-9A-F]\\:[a-f0-9A-F]\\)\\{5\\}[a-f0-9A-F]"`
+    #fi
+    
+    ifconfig eth0 down > /dev/null 2>&1
+    ifconfig eth0 hw ether ${mac} > /dev/null 2>&1
+    ifconfig eth0 up  > /dev/null 2>&1
+    
+    
+    if [ "$dhcp" = "true" ] ; then
+        if [ "$QUIET" = "true" ] ; then
+            udhcpc -b -t 5 -A 5 -x hostname:$hostname -i eth0 &
+        else
+            udhcpc -b -t 5 -A 5 -x hostname:$hostname -i eth0 &
+        fi
+    else
+        # Manual setup
+        ip addr add $ipaddress/$netmask dev eth0
+        
+        ip ro add default via $gateway
+    
+        > /etc/resolv.conf
+        for ip in $dnsservers ; do
+            dns=`echo $ip|grep -o "$ValidIpAddress"`
+            if [ -n "$dns" ]; then
+    	     echo nameserver $ip >> /etc/resolv.conf
+    	    fi
+        done
+    fi
+}
+
+function do_stop()
+{
+    #kill udhcpc service
+    killall -9 udhcpc
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    restart)
+        do_stop
+        do_start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac

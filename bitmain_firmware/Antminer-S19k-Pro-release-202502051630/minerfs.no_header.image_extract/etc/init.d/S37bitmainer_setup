@@ -1,0 +1,183 @@
+#!/bin/sh
+LOG_FILE=/tmp/mount-err.log
+function mount_ubifs()
+{
+    local ubi_ix=$1
+    local mount_point=$2
+    echo "mount $mount_point"
+    mkdir  -p $mount_point
+    mount -t ubifs /dev/ubi${ubi_ix}_0 $mount_point > /dev/null
+    ret=$?
+    if [ $ret -ne 0 ];then
+        echo "mount $mount_point failed!!!" >> ${LOG_FILE}
+    fi
+    return $ret
+}
+
+function prepare_ubifs()
+{
+    local mtd_ix=$1
+    local ubi_ix=$2
+    local mpoint=$3
+    local nname=$4
+    ubiattach /dev/ubi_ctrl -m ${mtd_ix} -b 2 -d ${ubi_ix} > /dev/null
+    if [ $? -eq 0 ];then
+        if [ -c /dev/ubi${ubi_ix}_0 ];then
+            mount_ubifs  ${ubi_ix} ${mpoint}
+        else
+            ubimkvol /dev/ubi${ubi_ix} -m -N ${nname} > /dev/null
+            if [ $? -ne 0 ];then
+                echo "ubimkval failed !!!" > $(LOG_FILE)
+            else
+                 mount_ubifs  ${ubi_ix} ${mpoint}
+            fi
+        fi
+    else
+        flash_erase /dev/mtd${mtd_ix} 0x0 0x0 > /dev/null
+        ubiformat /dev/mtd${mtd_ix} -y > /dev/null
+        if [ $? -ne 0 ];then
+            echo "ubiformat failed !!!" >> ${LOG_FILE}
+        else
+            ubiattach /dev/ubi_ctrl -m ${mtd_ix} -b 2 -d ${ubi_ix} > /dev/null
+            if [ $? -eq 0 ];then
+                ubimkvol /dev/ubi${ubi_ix} -m -N ${nname} > /dev/null
+                if [ $? -ne 0 ];then
+                    echo "ubimkval failed after ubiformat !!!" >> ${LOG_FILE}
+                else
+                    mount_ubifs  ${ubi_ix} ${mpoint}
+                fi
+            else
+                echo "ubiattach failed after ubiformat" >> ${LOG_FILE}
+            fi
+        fi
+    fi
+}
+
+function do_start()
+{
+    check0p3=`cat /etc/mtab | grep "ubi0"`
+    if [ ""x == "$check0p3"x ] ; then
+        echo "mounting config"
+        prepare_ubifs 2 0 /config config_data
+    else
+        echo "mount /config already"
+    fi
+
+    check0p3=`cat /etc/mtab | grep "ubi2"`
+    if [ ""x == "$check0p3"x ] ; then
+        echo "mounting misc"
+        prepare_ubifs 4 2 /var/log/miner misc
+    else
+        echo "mount /misc already"
+    fi
+
+    check0p3=`cat /etc/mtab | grep "ubi3"`
+    if [ ""x == "$check0p3"x ] ; then
+        echo "mounting nvdata"
+        prepare_ubifs 7 3 /nvdata nvdada_log
+    else
+        echo "mount /nvdata already"
+    fi
+    sleep 1
+
+    ###########################
+    #gpio
+    red_led=941
+    green_led=942
+    recover=921
+    ip_sig=943
+    # IP_SIG
+    if [ ! -d /sys/class/gpio/gpio$ip_sig ]; then
+        echo $ip_sig > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio$ip_sig/direction
+    fi
+
+    if [ ! -e /sys/class/gpio/gpio$recover ]; then
+        echo $recover > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio$recover/direction
+    fi
+    # Green
+    if [ ! -e /sys/class/gpio/gpio$green_led ]; then
+        echo $green_led > /sys/class/gpio/export
+    fi
+    echo out > /sys/class/gpio/gpio$green_led/direction
+
+    #Red
+    if [ ! -e /sys/class/gpio/gpio$red_led ]; then
+        echo $red_led > /sys/class/gpio/export
+    fi
+    echo out > /sys/class/gpio/gpio$red_led/direction
+
+    ###########################
+
+    # No configuration, create it!
+    if [ ! -f /config/cgminer.conf ] ; then
+        if [ -f /etc/cgminer.conf.factory ];then
+            cp /etc/cgminer.conf.factory /config/cgminer.conf
+            chown www-data:www-data /config/cgminer.conf
+            chmod 755 /config/cgminer.conf
+        fi
+    fi
+
+    if [ ! -f /config/network.conf ] ; then
+        cp /etc/network.conf.factory /config/network.conf
+        chown www-data:www-data /config/network.conf
+        chmod 755 /config/network.conf
+    fi
+    ###########################
+
+    # httpdpasswd
+    if [ ! -f /config/lighttpd-htdigest.user ] ; then
+        cp /etc/lighttpd/lighttpd-htdigest.user /config/lighttpd-htdigest.user
+        chown www-data:www-data /config/lighttpd-htdigest.user
+        chmod 755 /config/lighttpd-htdigest.user
+    fi
+    
+    if [ -f /etc/lighttpd.proxy ];then
+        cat /etc/lighttpd.proxy >> /etc/lighttpd/lighttpd.conf
+        rm /etc/lighttpd.proxy
+    fi
+
+    # shadow
+    if [ ! -f /config/shadow ] ; then
+        cp -p /etc/shadow.factory /config/shadow
+        chmod 0400 /config/shadow
+        rm -f /etc/shadow
+        ln -s /config/shadow /etc/shadow
+    else
+        rm -f /etc/shadow
+        ln -s /config/shadow /etc/shadow
+    fi
+
+    #passwd
+    if [ ! -f /config/passwd ];then
+        cp -p /etc/passwd /config/passwd
+        chmod 0644 /config/passwd
+        rm -f /etc/passwd
+        ln -s /config/passwd /etc/passwd
+    else
+        rm -f /etc/passwd
+        ln -s /config/passwd /etc/passwd
+    fi
+    ###########################
+    sync &
+}
+
+function do_stop()
+{
+    exit 0
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac
+

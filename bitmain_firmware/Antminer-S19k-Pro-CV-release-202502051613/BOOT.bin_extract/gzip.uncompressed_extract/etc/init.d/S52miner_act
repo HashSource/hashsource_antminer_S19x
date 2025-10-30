@@ -1,0 +1,162 @@
+#!/bin/sh 
+
+#gpio
+red_led=434
+green_led=435
+
+#seed
+seed_file=/tmp/miner_act
+seed_valid=
+led_prepare()
+{
+    # Green
+    if [ ! -e /sys/class/gpio/gpio$green_led ]; then
+        echo $green_led > /sys/class/gpio/export
+    fi
+    echo out > /sys/class/gpio/gpio$green_led/direction
+
+    #Red
+    if [ ! -e /sys/class/gpio/gpio$red_led ]; then
+        echo $red_led > /sys/class/gpio/export
+    fi
+    echo out > /sys/class/gpio/gpio$red_led/direction
+}
+
+led_exit()
+{
+    if [ -e /sys/class/gpio/gpio$red_led ]; then
+        echo $red_led > /sys/class/gpio/unexport
+    fi
+
+    if [ -e /sys/class/gpio/gpio$green_led ]; then
+        echo $green_led > /sys/class/gpio/unexport
+    fi
+}
+
+led_on()
+{
+    echo 1 > /sys/class/gpio/gpio$green_led/value
+    echo 1 > /sys/class/gpio/gpio$red_led/value
+}
+
+led_off()
+{
+    echo 0 > /sys/class/gpio/gpio$green_led/value
+    echo 0 > /sys/class/gpio/gpio$red_led/value
+}
+
+do_start()
+{
+    local ret
+    led_prepare
+    while true
+    do
+        check_seed
+        ret=$?
+        if [ "$ret" -eq 0 ];
+        then
+            led_on
+            sleep 0.3
+            led_off
+            sleep 0.3
+        else
+            sleep 1
+        fi
+    done
+}
+
+do_stop()
+{
+    #led_exit
+    exit 0
+}
+
+check_seed()
+{
+    if [ ! -f  $seed_file ]; then
+        #echo "seed_file $seed_file do not exist" 
+        return 1
+    else
+        seed_valid=$(cat $seed_file)
+        if [ "$seed_valid" -eq 1 ]; then
+            return 0
+        elif [ "$seed_valid" -eq 2 ]; then          
+            echo "$(date '+%Y-%m-%d %H:%M:%S') the reboot command was called" >> /var/log/miner.log
+            echo "$(date '+%Y-%m-%d %H:%M:%S') the reboot command was called" >> /tmp/miner/miner.log
+            killall -s 9 S71monitorcg
+            sleep 3
+            killall -s 15 bmminer
+            sleep 50
+            /sbin/reboot > /dev/null 2>&1
+            return 4
+        elif [ "$seed_valid" -eq 3 ]; then
+            sleep 3
+            /usr/bin/factory_config_reset.sh > /dev/null 2>&1
+            return 4
+        elif [ "$seed_valid" -eq 4 ]; then
+            /etc/init.d/S70cgminer restart > /dev/null &
+            echo "" > /tmp/miner_act
+            sleep 3
+            return 4
+        elif [ "$seed_valid" != "${seed_valid//antminer_log/}" ];then
+            rm_filelist=$(find /dev/ -name "antminer_log*")
+            if [ ! -z "$rm_filelist" ]; then
+                for rm_file in $rm_filelist; do
+                    rm -rf $rm_file
+                done
+                sync
+            fi
+
+            tar_file=""
+            dir_list=""
+            for word in $seed_valid
+            do
+                if [ "$tar_file"x == ""x ];then
+                    tar_file=$word
+                    echo "$tar_file" | grep "^antminer_log-[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9].tar$" > /dev/null 2>&1
+                    file_format1=$?
+                    echo "$tar_file" | grep "^antminer_log_[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]_[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9].tar$" > /dev/null 2>&1
+                    file_format2=$?
+
+                    if [ $file_format1 -ne 0 -a $file_format2 -ne 0 ];then
+                        rm $seed_file
+                        return 2
+                    fi
+                else
+                    echo $word | grep "^/nvdata/[0-9][0-9][0-9][0-9]-[0-1][0-9]/[0-3][0-9]$" > /dev/null 2>&1
+                    if [ $? -ne 0 ];then
+                        rm $seed_file
+                        return 2
+                    fi
+                    dir_list=$dir_list" "$word
+                fi
+            done
+
+            tar hcf /dev/$tar_file $dir_list --exclude *LINK* > /dev/null 2>&1
+            if [ -d /www/pages/log ];then
+                rm -rf /www/pages/log > /dev/null 2>&1
+            fi
+            mkdir /www/pages/log
+            ln -s /dev/$tar_file /www/pages/log/$tar_file
+            echo "$tar_file$dir_list" >> /tmp/backup.log
+            rm $seed_file
+        else
+            #echo "seed invalid"
+            return 2
+        fi
+    fi
+}
+
+case "$1" in
+    start|"")
+        do_start &
+        ;;
+    stop)
+        do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac
+exit 0

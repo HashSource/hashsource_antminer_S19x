@@ -1,0 +1,161 @@
+{
+    "Test_Process":							"SWEEP",
+
+        "Hash_Board":
+        {
+            "Miner_Type":					"S19k Pro",
+            "Board_Name":					"BHB56907",
+            "Asic_Type":					"BM1366",
+            "Asic_Num":						77,
+            "Voltage_Domain":					11,
+            "Asic_Num_Per_Voltage_Domain":		7,
+            "Has_Pic": false,
+            "Smooth_Voltage": false,
+	    "Voltage_Adjust_Step": 10,
+	    "Inc_Freq_Delay": 100,
+
+            "Sensor_Info":
+            {
+                "Read_Temperature_From_CtrlBoard":      true,
+                "Read_Temperature_From_Pic":	false,
+                "Read_Temperature_From_Asic":	false,
+
+                "Pic_Sensor":
+                {
+                    "Pic_Sensor_Model":			"LM75A",
+                    "Pic_Sensor_Addr":			[0, 1, 2, 3]
+                },
+
+                "Asic_Sensor":
+                {
+                    "Asic_Sensor_Model":		"NCT218",
+                    "Asic_Sensor_Addr":			[25, 57, 58, 90]
+                },
+
+                "CtrlBoard_Sensor":
+                {				
+                    "CtrlBoard_Sensor_Model":	"LM75A",
+                    "CtrlBoard_Sensor_Addr":	[0, 4]
+                }
+            },
+
+            "Power_Version":					[193,113, 114, 116, 117, 118, 119, 120]
+        },
+
+        "Test_Info":
+        {
+            "Factory_Mode":						true,
+            "Bypass_Scan_Code_Gun":				true,
+			"Find_Stupid_Asic":true,
+			"Freq_Flex":15,
+            "Test_Method":
+            {
+                "Software_Pattern":				true,
+                "Super_Software_Pattern":       false,
+                "Hardware_Pattern":				false,
+                "Autogen_Pattern":				false,
+                "Midstate_Number":				8,
+                "Capture_Pattern":			        false	
+            },
+
+            "Sweep_Cfg":{
+                "Force_Reset_Power_Mode":false,
+                "Force_PT2_Before_Sweep":false,
+                "Data_Reuse_Mode":false,
+                "Freq_Float_Percent":20,
+                "Force_Reset_Freq_Range":true,
+                "Sweep_Min_Freq":575,
+                "Sweep_Max_Freq":715,
+                "Force_Local_Cfg_Level":false,
+                "Sweep_Vol_Diff":40,
+                "Sweep_Freq_Diff":80
+            },
+
+            "Test_Standard":
+            {
+                "Pattern_Number":			8,
+                "Invalid_Core_Number":			89,
+                "Least_Nonce_Per_Core":			1,
+		"Asic_Nonce_Rate":			9600,
+                "Nonce_Rate":				9950,
+                "Most_HW_Num":				128,
+
+                "Test_Loop":
+                    [
+                    {
+                        "Level":                                1,
+                        "Pre_Open_Core_Voltage":1500,
+                        "Voltage":                              1390,
+                        "Frequence":                    670
+                    },
+                    {
+                       "Level":                               2,
+                       "Pre_Open_Core_Voltage":1500,
+                        "Voltage":                              1390,
+                        "Frequence":                    645
+                    },
+                    {
+                       "Level":                               3,
+                       "Pre_Open_Core_Voltage":1500,
+                        "Voltage":                              1390,
+                        "Frequence":                    620
+                    },
+                    {
+                       "Level":                               4,
+                       "Pre_Open_Core_Voltage":1500,
+                        "Voltage":                              1390,
+                        "Frequence":                    595
+                    }
+                    ]
+            },
+
+            "Test_Speed":
+            {
+                "Baudrate":						12000000,
+                "Timeout":						10
+            },
+
+            "Asic_Register":
+            {
+                "CCdly_Sel":					0,
+                "Pwth_Sel":						4,
+                "Swpf_Mode":					0,
+                "Pulse_Mode":					1,
+                "Clk_Sel":						0,
+                "RO_Relay_En":					1,
+                "CO_Relay_En":					1,
+                "Diode_Vdd_Mux_Sel":			3
+            },
+
+            "Temperature":
+            {
+                "Max_Wait_Cooling_Down_Time":	120,
+                "Start_Temp_Gap_Pic":			2,
+                "Time_For_Cooling_Hashboard":	10
+            },
+
+            "Fan":
+            {
+                "Fan_Speed":					100,
+                "Work_Fan_Speed":      100
+            },
+
+            "Display":
+            {
+                "Display_result_Voltage_Domain":true,
+                "Display_result_Every_Core":	false
+            },
+
+            "Voltage_Accuracy":					50,
+            "Test_Config_Data_Version":			"0"
+        },
+
+        "Repair_Mode":
+        {
+            "Close_Power_Delay":				0,
+            "Clear_EEPROM_Data":                    false,
+            "Enable_Repair":                        false
+        },
+
+        "Null":									0
+}

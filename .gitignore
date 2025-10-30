@@ -1,0 +1,13 @@
+# IDA Pro Files
+*.i64
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+
+# Ghidra
+_ghidra_project
+_lib_copies
+symbols
+_decompile.log

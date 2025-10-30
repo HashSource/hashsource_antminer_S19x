@@ -1,0 +1,26 @@
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+
+if [ "$PS1" ]; then
+        if [ "`id -u`" -eq 0 ]; then
+                export PS1='\u@\h# \w\a '
+        else
+                export PS1='\u@\h$ \w\a '
+        fi
+fi
+
+export PAGER='/bin/more'
+export EDITOR='/bin/vi'
+if [ -d /usr/lib/terminfo ];then
+        export TERMINFO=/usr/lib/terminfo
+fi
+# Source configuration files from /etc/profile.d
+for i in /etc/profile.d/*.sh ; do
+        if [ -r "$i" ]; then
+                . $i
+        fi
+done
+
+CPUID=$(hexdump -n20 -e '32/1 "%02x"' /sys/class/cvi-base/base_efuse_shadow | dd skip=24 count=16 bs=1 2>&-)
+export CPUID
+
+unset i

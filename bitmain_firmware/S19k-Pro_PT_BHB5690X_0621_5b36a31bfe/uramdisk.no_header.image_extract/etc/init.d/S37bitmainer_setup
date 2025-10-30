@@ -1,0 +1,178 @@
+#!/bin/sh
+
+LOG_FILE=/tmp/mount-err.log
+function mount_config()
+{
+	mount -t ubifs /dev/ubi0_0 /config
+	if [ $? -ne 0 ];then
+		echo "mount config failed!!!" >> ${LOG_FILE}
+	fi
+}
+
+function prepare_ubifs()
+{
+    ubiattach /dev/ubi_ctrl -m 2
+    if [ $? -eq 0 ];then
+        if [ -c /dev/ubi0_0 ];then
+            mount_config
+        else
+        	ubimkvol /dev/ubi0 -m -N config_data
+        	if [ $? -ne 0 ];then
+        		echo "ubimkval failed !!!" > $(LOG_FILE)
+        	else
+        		 mount_config
+        	fi
+        fi
+    else
+        flash_erase /dev/mtd2 0x0 0x0
+		ubiformat /dev/mtd2 -y
+		if [ $? -ne 0 ];then
+			echo "ubiformat failed !!!" >> ${LOG_FILE}
+		else
+			ubiattach /dev/ubi_ctrl -m 2
+			if [ $? -eq 0 ];then
+				ubimkvol /dev/ubi0 -m -N config_data
+				if [ $? -ne 0 ];then
+					echo "ubimkval failed after ubiformat !!!" >> ${LOG_FILE}
+				else
+					mount_config
+				fi
+			else
+				echo "ubiattach failed after ubiformat" >> ${LOG_FILE}
+			fi
+		fi
+	fi
+}                                     
+
+function do_start()
+{
+	prepare_ubifs
+	check0p1=`cat /etc/mtab | grep "mmcblk0p1"`
+	if test  -z $check0p1 ;then
+		echo "mounting mmc"
+		mkdir -p /mnt/card
+		mount -t vfat /dev/mmcblk0p1 /mnt/card
+		sync
+	else                                            
+		echo "mount mmc already"           
+	fi     
+	
+	#do not use link
+	#if [ ! -f /mnt/card/mac ];then
+    #	mac=`id2mac`
+    #	echo $mac > /mnt/card/mac
+	#	cp -p /mnt/card/mac /config/mac
+    #    sync
+	#else
+	#	cp -p /mnt/card/mac /config/mac
+	#fi
+	
+#	check0p1=`cat /etc/mtab | grep "/mnt/pattern"`
+#	if test  -z $check0p1 ;then
+#		echo "mounting tmpfs"
+#		mkdir -p /mnt/pattern
+#		mount -t tmpfs tmpfs /mnt/pattern
+#	else                                            
+#		echo "mount tmpfs already"           
+#	fi  
+	
+	
+	###########################
+	#gpio
+	red_led=941                                                                                                                 
+	green_led=942                                                                                                               
+	recover=921
+	ip_sig=943
+	# IP_SIG
+	if [ ! -d /sys/class/gpio/gpio$ip_sig ]; then
+	    echo $ip_sig > /sys/class/gpio/export
+	    echo in > /sys/class/gpio/gpio$ip_sig/direction
+	fi
+
+	if [ ! -e /sys/class/gpio/gpio$recover ]; then                                                                                  
+		echo $recover > /sys/class/gpio/export                                                                                      
+		echo in > /sys/class/gpio/gpio$recover/direction                                                                            
+	fi                                                                                                                              
+	# Green                                                                                                                         
+	if [ ! -e /sys/class/gpio/gpio$green_led ]; then                                                                                
+		echo $green_led > /sys/class/gpio/export                                                                                    
+	fi                                                                                                                              
+	echo out > /sys/class/gpio/gpio$green_led/direction                                                                         
+	
+	#Red                                                                                                                            
+	if [ ! -e /sys/class/gpio/gpio$red_led ]; then                                                                                  
+		echo $red_led > /sys/class/gpio/export                                                                                      
+	fi                                                                                                                              
+	echo out > /sys/class/gpio/gpio$red_led/direction 
+	
+	###########################
+	
+	# No configuration, create it!
+	if [ ! -f /config/cgminer.conf ] ; then
+		if [ -f /etc/cgminer.conf.factory ];then
+		    cp /etc/cgminer.conf.factory /config/cgminer.conf
+			chmod 766 /config/cgminer.conf
+		fi
+	fi
+	if [ ! -f /config/bmminer.conf ] ; then
+		if [ -f /etc/bmminer.conf.factory ];then
+			cp /etc/bmminer.conf.factory /config/bmminer.conf
+			chmod 766 /config/bmminer.conf
+		fi
+	fi
+	if [ ! -f /config/network.conf ] ; then
+	    cp /etc/network.conf.factory /config/network.conf
+		chmod 666 /config/network.conf
+	fi
+	###########################
+	
+	
+	###########################
+	# httpdpasswd
+	if [ ! -f /config/lighttpd-htdigest.user ] ; then
+	    cp /etc/lighttpd/lighttpd-htdigest.user /config/lighttpd-htdigest.user
+		chmod 666 /config/lighttpd-htdigest.user
+	fi
+	
+	# shadow
+	if [ ! -f /config/shadow ] ; then
+	    cp -p /etc/shadow.factory /config/shadow
+	    chmod 0400 /config/shadow
+	    rm -f /etc/shadow
+	    ln -s /config/shadow /etc/shadow
+	else
+	    rm -f /etc/shadow
+	    ln -s /config/shadow /etc/shadow
+	fi
+	
+	#passwd
+	if [ ! -f /config/passwd ];then
+		cp -p /etc/passwd /config/passwd
+		chmod 0644 /config/passwd
+		rm -f /etc/passwd
+		ln -s /config/passwd /etc/passwd
+	else
+		rm -f /etc/passwd
+		ln -s /config/passwd /etc/passwd
+	fi
+	###########################
+
+}
+
+function do_stop()
+{
+	exit 0
+}
+
+case "$1" in
+    start|"")
+		do_start
+        ;;
+    stop)
+		do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,44 @@
+{
+	"config":
+    [
+		{
+			"miner": "BHB56901",
+			"levels": [
+				{
+					"frequency": 695,
+					"voltage": 1390
+				}, 
+				{
+					"frequency": 635,
+					"voltage": 1320
+				}
+			]
+		},
+		{
+			"miner": "BHB56902",
+			"levels": [
+				{
+					"frequency": 670,
+					"voltage": 1440
+				}, 
+				{
+					"frequency": 540,
+					"voltage": 1320
+				}
+			]
+		},
+		{
+			"miner": "BHB56903",
+			"levels": [
+				{
+					"frequency": 670,
+					"voltage": 1440
+				}, 
+				{
+					"frequency": 540,
+					"voltage": 1320
+				}
+			]
+		}
+	]
+}

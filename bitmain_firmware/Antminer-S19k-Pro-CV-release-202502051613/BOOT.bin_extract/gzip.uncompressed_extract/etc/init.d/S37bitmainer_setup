@@ -1,0 +1,214 @@
+#!/bin/sh
+
+pinmux_init()
+{
+    echo " "
+    insmod /lib/modules/cv183x_pwm.ko
+    insmod /lib/modules/cv183x_base.ko
+
+    echo " "
+    echo "Enter change pinmux..."
+    ################################################################################
+    # set GPIO
+    ################################################################################
+    ## all values are default
+    devmem 0x0300118C 32 0x03 # VI_DATA[20] XGPIOC[31] OUT GPIO_RECOVERY      447 default in
+    devmem 0x03001198 32 0x03 # VI_DATA[19] XGPIOD[2] IN GPIO_IP_GET          406 default in
+    devmem 0x030011B0 32 0x03 # VI_DATA[23] XGPIOD[8] OUT PWR_EN              412 default in
+    ### set to GPIO OUT
+    echo 412 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio412/direction
+
+    devmem 0x0300106C 32 0x07 # XGPIO_A_26 XGPIOA[26] EPHY_LNK_LED default  506
+    devmem 0x0300105C 32 0x07 # XGPIO_A_22 XGPIOA[22] EPHY_LNK_SPD default  502
+
+    ## MIPIRX1_PAD0N 0x0300_113C XGPIOC[11] OUT BANK34_L2P_RST1 default  IN   427
+    echo 427 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio427/direction
+    ## MIPIRX1_PAD1N 0x0300_1144 XGPIOC[13] OUT BANK34_L5P_RST2 default  IN   429
+    echo 429 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio429/direction
+    ## MIPIRX1_PAD2N 0x0300_114C XGPIOC[15] OUT BANK34_L8P_RST3 default  IN   431
+    echo 431 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio431/direction
+    ## MIPIRX1_PAD3N 0x0300_1154 XGPIOC[17] OUT BANK34_L10P_RST4 default IN   433
+    echo 433 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio433/direction
+
+    ## MIPIRX1_PAD4N 0x0300_115C XGPIOC[19] OUT GPIO_LED_G default    IN      435
+    echo 435 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio435/direction
+    ## MIPIRX1_PAD4P 0x0300_1158 XGPIOC[18] OUT GPIO_LED_R default    IN      434
+    echo 434 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio434/direction
+
+    ################################################################################
+    # set IIC
+    ################################################################################
+    cvi_pinmux -w IIC2_SCL/XGPIOB_11
+    cvi_pinmux -w IIC2_SDA/XGPIOB_13
+    echo 459 > /sys/class/gpio/export
+    echo 461 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio459/direction
+    echo out > /sys/class/gpio/gpio461/direction
+
+    devmem 0x030011B8 32 0x00 # IIC0_SCL    BANK34_L11P_SCL
+    devmem 0x0300119C 32 0x00 # IIC0_SDA    BANK34_L11P_SDA
+    devmem 0x030011A4 32 0x00 # IIC3_SCL    IIC3_SCL_MFG
+    devmem 0x030011B4 32 0x00 # IIC3_SDA    IIC3_SDA_MFG
+
+    ################################################################################
+    # set UART
+    ################################################################################
+    devmem 0x030010d8 32 0x0; # UART1_TX UART1_TX BANK34_L9N_TXD1i
+    devmem 0x030010ec 32 0x0; # UART1_RX UART1_RX BANK34_L9P_RXD1i
+
+    devmem 0x030010c4 32 0x0; # UART2_TX UART2_TX BANK34_L9N_TXD2i
+    devmem 0x030010d4 32 0x0; # UART2_RX UART2_RX BANK34_L9P_RXD2i
+
+    devmem 0x03001188 32 0x5; # VI_DATA[22] UART3_TX BANK34_L9P_RXD3i
+    devmem 0x03001190 32 0x5; # VI_DATA[21] UART3_RX BANK34_L9N_TXD3i
+
+    devmem 0x030010cc 32 0x7; # UART1_RTS UART4_TX BANK34_L9N_TXD4i
+    devmem 0x030010dc 32 0x7; # UART1_CTS UART4_RX BANK34_L9P_RXD4i
+
+    ################################################################################
+    # set PWM
+    ################################################################################
+    ## change pinmux
+    devmem 0x030010E4 32 0x01 # UART2_CTS PWM[9]  PWM_OUT BANK35_L2P_PWMF  FAN1 FAN3
+    devmem 0x030010D0 32 0x01 # UART2_RTS PWM[8] PWM_OUT BANK35_L2N_PWMR   FAN2 FAN4
+    devmem 0x030010A8 32 0x02 # SPI0_SDI PWM[15] PWM IN BANK35_L1P_SPEED3 FAN2
+    devmem 0x030010AC 32 0x02 # SPI0_SDO PWM[14] PWM IN BANK35_L1P_SPEED4 FAN4
+    devmem 0x030010B0 32 0x02 # SPI0_SCK PWM[12] PWM IN BANK35_L1P_SPEED2  FAN3
+    devmem 0x030010B4 32 0x02 # SPI0_CS_X PWM[13] PWM IN BANK35_L1P_SPEED1 FAN1
+
+    echo "change pinmux End"
+    echo " "
+
+    echo "init pwm out and in"
+
+    ## enable pwm[8] rear fan FAN2 FAN4
+    echo  0 > /sys/class/pwm/pwmchip8/export
+    echo 1000000 > /sys/class/pwm/pwmchip8/pwm0/period
+    # echo  500000 > /sys/class/pwm/pwmchip8/pwm0/duty_cycle
+    echo 1 > /sys/class/pwm/pwmchip8/pwm0/enable
+
+    ## enable pwm[9] front fan,  FAN1 FAN3
+    echo  1 > /sys/class/pwm/pwmchip8/export
+    echo 1000000 > /sys/class/pwm/pwmchip8/pwm1/period
+    # echo  500000 > /sys/class/pwm/pwmchip8/pwm1/duty_cycle
+    echo 1 > /sys/class/pwm/pwmchip8/pwm1/enable
+
+    ## init pwm in , read pwm[12] FAN3  front fan 1
+    echo  0 > /sys/class/pwm/pwmchip12/export
+    echo 1000000 > /sys/class/pwm/pwmchip12/pwm0/period
+    echo 1 > /sys/class/pwm/pwmchip12/pwm0/enable
+
+    echo  1 > /sys/class/pwm/pwmchip12/export
+    echo 1000000 > /sys/class/pwm/pwmchip12/pwm1/period
+    echo 1 > /sys/class/pwm/pwmchip12/pwm1/enable
+
+    echo  2 > /sys/class/pwm/pwmchip12/export
+    echo 1000000 > /sys/class/pwm/pwmchip12/pwm2/period
+    echo 1 > /sys/class/pwm/pwmchip12/pwm2/enable
+
+    echo  3 > /sys/class/pwm/pwmchip12/export
+    echo 1000000 > /sys/class/pwm/pwmchip12/pwm3/period
+    echo 1 > /sys/class/pwm/pwmchip12/pwm3/enable
+
+    # change GPIO Schmitt trigger time
+    devmem 0x03001910 w 0x320
+    devmem 0x03001914 w 0x320
+    devmem 0x03001918 w 0x320
+    devmem 0x0300191c w 0x320
+
+    echo "pwm init ok"
+}
+
+sync_config()
+{
+    # No configuration, create it!
+    if [ ! -f /config/cgminer.conf ] ; then
+        if [ -f /etc/cgminer.conf.factory ];then
+            cp /etc/cgminer.conf.factory /config/cgminer.conf
+            chown www-data:www-data /config/cgminer.conf
+            chmod 755 /config/cgminer.conf
+        fi
+    fi
+
+    if [ ! -f /config/network.conf ] ; then
+        if [ -f /etc/network.conf.factory ];then
+            cp /etc/network.conf.factory /config/network.conf
+            chown www-data:www-data /config/network.conf
+            chmod 755 /config/network.conf
+        fi
+    fi
+    ###########################
+
+    # httpdpasswd
+    if [ ! -f /config/lighttpd-htdigest.user ] ; then
+        if [ -f /etc/lighttpd/lighttpd-htdigest.user ];then
+            cp /etc/lighttpd/lighttpd-htdigest.user /config/lighttpd-htdigest.user
+            chown www-data:www-data /config/lighttpd-htdigest.user
+            chmod 755 /config/lighttpd-htdigest.user
+        fi
+    fi
+    if [ -f /etc/lighttpd.proxy ];then
+        cat /etc/lighttpd.proxy >> /etc/lighttpd/lighttpd.conf
+        rm /etc/lighttpd.proxy
+    fi
+    # shadow
+    if [ ! -f /config/shadow ] ; then
+        cp -p /etc/shadow.factory /config/shadow
+        chmod 0400 /config/shadow
+        rm -f /etc/shadow
+        ln -s /config/shadow /etc/shadow
+    else
+        rm -f /etc/shadow
+        ln -s /config/shadow /etc/shadow
+    fi
+
+    #passwd
+    if [ ! -f /config/passwd ];then
+        cp -p /etc/passwd /config/passwd
+        chmod 0644 /config/passwd
+        rm -f /etc/passwd
+        ln -s /config/passwd /etc/passwd
+    else
+        rm -f /etc/passwd
+        ln -s /config/passwd /etc/passwd
+    fi
+    ###########################
+    sync &
+}
+
+do_start()
+{
+    pinmux_init
+    sync_config
+    # mount /sys 
+    /bin/busybox mount -t sysfs sysfs /sys
+    #miner log
+    mkdir -p /tmp/miner
+}
+
+do_stop()
+{
+    sync
+    umount /config
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac
+

@@ -1,0 +1,275 @@
+{
+	"version": "3.0.4",
+	"errorcode": [
+		{
+			"id": 100,
+			"code": "R:1",
+			"reason": "Average total hashrate is low",
+			"suggestion": "Update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 101,
+			"code": "R1:1",
+			"reason": "Chain1 is broken, or its hashrate is low",
+			"suggestion": "Check whether chain1 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 102,
+			"code": "R2:1",
+			"reason": "Chain2 is broken, or its hashrate is low",
+			"suggestion": "Check whether chain2 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 103,
+			"code": "R4:1",
+			"reason": "Chain3 is broken, or its hashrate is low",
+			"suggestion": "Check whether chain3 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 104,
+			"code": "R8:1",
+			"reason": "Chain4 is broken, or its hashrate is low",
+			"suggestion": "Check whether chain4 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 141,
+			"code": "J1:1",
+			"reason": "Chain1 has bad ASIC",
+			"suggestion": "Update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 142,
+			"code": "J2:1",
+			"reason": "Chain2 has bad ASIC",
+			"suggestion": "Update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 143,
+			"code": "J4:1",
+			"reason": "Chain3 has bad ASIC",
+			"suggestion": "Update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 144,
+			"code": "J8:1",
+			"reason": "Chain4 has bad ASIC",
+			"suggestion": "Update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 160,
+			"code": "N:1",
+			"reason": "Average total hashrate exceeds the sale hashrate too much",
+			"suggestion": "Update the firmware to the latest version"
+		},
+		{
+			"id": 180,
+			"code": "N:2",
+			"reason": "Frequency is reduced too much",
+			"suggestion": "Update the firmware to the latest version"
+		},
+		{
+			"id": 201,
+			"code": "V:1",
+			"reason": "Power initialization error or power output voltage error",
+			"suggestion": "Check power output wiring, update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 202,
+			"code": "V:2",
+			"reason": "Power supply is not calibrated",
+			"suggestion": "Update the firmware to the latest version, replace the power supply, or return to factory for repair"
+		},
+		{
+			"id": 300,
+			"code": "F:1",
+			"reason": "Fan error",
+			"suggestion": "Check whether the fan connection is normal, replace the power supply, or replace the fan"
+		},
+		{
+			"id": 301,
+			"code": "F1:1",
+			"reason": "Fan1 is not detected or its speed is low",
+			"suggestion": "Check whether the fan1 connection is normal, replace the power supply, or replace the fan"
+		},
+		{
+			"id": 302,
+			"code": "F2:1",
+			"reason": "Fan2 is not detected or its speed is low",
+			"suggestion": "Check whether the fan2 connection is normal, replace the power supply, or replace the fan"
+		},
+		{
+			"id": 303,
+			"code": "F4:1",
+			"reason": "Fan3 is not detected or its speed is low",
+			"suggestion": "Check whether the fan3 connection is normal, replace the power supply, or replace the fan"
+		},
+		{
+			"id": 304,
+			"code": "F8:1",
+			"reason": "Fan4 is not detected or its speed is low",
+			"suggestion": "Check whether the fan4 connection is normal, replace the power supply, or replace the fan"
+		},
+		{
+			"id": 400,
+			"code": "J:8",
+			"reason": "The number of hashboard is less than the design",
+			"suggestion": "Check whether the hashboard connection is normal, or replace the hashboard"
+		},
+		{
+			"id": 500,
+			"code": "P:1",
+			"reason": "High temperature protection",
+			"suggestion": "Check whether the environment temperature is normal, or check whether the gel on the hashboard is effective"
+		},
+		{
+			"id": 501,
+			"code": "P:2",
+			"reason": "Low temperature protection",
+			"suggestion": "Check whether the environment temperature is normal"
+		},
+		{
+			"id": 601,
+			"code": "J1:4",
+			"reason": "Chain1 EEPROM data error",
+			"suggestion": "Redo the factory test for chain1"
+		},
+		{
+			"id": 602,
+			"code": "J2:4",
+			"reason": "Chain2 EEPROM data error",
+			"suggestion": "Redo the factory test for chain2"
+		},
+		{
+			"id": 603,
+			"code": "J4:4",
+			"reason": "Chain3 EEPROM data error",
+			"suggestion": "Redo the factory test for chain3"
+		},
+		{
+			"id": 604,
+			"code": "J8:4",
+			"reason": "Chain4 EEPROM data error",
+			"suggestion": "Redo the factory test for chain4"
+		},
+		{
+			"id": 700,
+			"code": "J:6",
+			"reason": "Temperature sensor error",
+			"suggestion": "Check whether the hashboard connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 801,
+			"code": "J1:5",
+			"reason": "Chain1 PIC error",
+			"suggestion": "Check whether chain1 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 802,
+			"code": "J2:5",
+			"reason": "Chain2 PIC error",
+			"suggestion": "Check whether chain2 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 803,
+			"code": "J4:5",
+			"reason": "Chain3 PIC error",
+			"suggestion": "Check whether chain3 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 804,
+			"code": "J8:5",
+			"reason": "Chain4 PIC error",
+			"suggestion": "Check whether chain4 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 900,
+			"code": "M:1",
+			"reason": "Memory allocation error",
+			"suggestion": "Update the firmware to the latest version, replace the control board, or return to factory for repair"
+		},
+		{
+			"id": 1001,
+			"code": "J1:2",
+			"reason": "The number of chain1 chips is less than the design",
+			"suggestion": "Check whether chain1 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 1002,
+			"code": "J2:2",
+			"reason": "The number of chain2 chips is less than the design",
+			"suggestion": "Check whether chain2 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 1003,
+			"code": "J4:2",
+			"reason": "The number of chain3 chips is less than the design",
+			"suggestion": "Check whether chain3 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 1004,
+			"code": "J8:2",
+			"reason": "The number of chain4 chips is less than the design",
+			"suggestion": "Check whether chain4 connection is normal, update the firmware to the latest version, replace the hashboard, or return to factory for repair"
+		},
+		{
+			"id": 1101,
+			"code": "L1:1",
+			"reason": "Chain1 voltage or frequency exceeds the limit",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1102,
+			"code": "L2:1",
+			"reason": "Chain2 voltage or frequency exceeds the limit",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1103,
+			"code": "L4:1",
+			"reason": "Chain3 voltage or frequency exceeds the limit",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1104,
+			"code": "L8:1",
+			"reason": "Chain4 voltage or frequency exceeds the limit",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1200,
+			"code": "L:2",
+			"reason": "Can not find the mixed level",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1201,
+			"code": "L1:2",
+			"reason": "Chain1 voltage or frequency is mismatch",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1202,
+			"code": "L2:2",
+			"reason": "Chain2 voltage or frequency is mismatch",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1203,
+			"code": "L4:2",
+			"reason": "Chain3 voltage or frequency is mismatch",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1204,
+			"code": "L8:2",
+			"reason": "Chain4 voltage or frequency is mismatch",
+			"suggestion": "Update the firmware to the latest version, or return to factory for repair"
+		},
+		{
+			"id": 1300,
+			"code": "N:4",
+			"reason": "Network connection is lost",
+			"suggestion": "Check whether the network connection is normal"
+		}
+	]
+}

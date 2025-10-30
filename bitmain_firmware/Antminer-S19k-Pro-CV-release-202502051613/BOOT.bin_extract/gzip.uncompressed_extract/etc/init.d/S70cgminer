@@ -1,0 +1,131 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/cgminer
+DAEMON1=/usr/bin/bmminer
+DAEMON2=/usr/sbin/testpool
+NAME=cgminer
+DESC="Cgminer daemon"
+
+set -e
+#set -x
+test -x "$DAEMON" || exit 0
+test -x "$DAEMON1" || exit 0
+
+do_start() {
+    sleep 5
+    
+    memory_size=$(awk '/MemTotal/{total=$2}END{print total}' /proc/meminfo)
+    echo "board totally has ${memory_size}KB memory"
+
+	if [ -z "$(lsmod | grep uart_trans)" ]; then
+        echo "module uart_trans.ko not been installed, install..."
+        insmod /lib/modules/uart_trans.ko
+	else
+        echo "module uart_trans.ko has been installed"
+	fi
+
+	if [ -z "$(lsmod | grep cv183x_base)" ]; then
+        echo "module cv183x_base.ko not been installed, install..."
+        insmod /lib/modules/cv183x_base.ko
+	else
+        echo "module cv183x_base.ko has been installed"
+	fi
+
+    if [ -z "$(lsmod | grep cv18.x_pwm)" ]; then
+        echo "module cv183x_pwm.ko not been installed, install..."
+        insmod /lib/modules/cv183x_pwm.ko
+	else
+        echo "module cv183x_pwm.ko has been installed"
+	fi
+
+	PARAMS="--version-file /usr/bin/compile_time"
+	echo PARAMS = $PARAMS
+	start-stop-daemon -b --start --exec $DAEMON -- $PARAMS --default-config /config/cgminer.conf -T --syslog
+	start-stop-daemon -b --start --exec $DAEMON1 -- $PARAMS --default-config /config/cgminer.conf -T --syslog
+    start-stop-daemon -b --start --exec $DAEMON2
+}
+
+do_logrotate_stop()
+{
+    PIDS=`ps | grep bitmain_logrotate | grep -v "grep" | awk '{print $1}'`
+
+    if [ ! -z "$PIDS" ];then
+        for PID in $PIDS
+        do
+            kill $PID
+        done
+    else
+        echo "Did Not Find bitmain_logrotate Process"
+        return
+    fi
+
+    echo "Waiting For bitmain_logrotate To Exit"
+    for i in `seq 60`
+    do
+        PIDS=`ps | grep bitmain_logrotate | grep -v "grep" | awk '{print $1}'`
+
+        if [ -z "$PIDS" ];then
+            echo "bitmain_logrotate Has Been Stopped"
+            break
+        fi
+
+        sleep 1
+    done
+}
+
+do_logrotate_start()
+{
+    PIDS=`ps | grep bitmain_logrotate | grep -v "grep" | awk '{print $1}'`
+    if [ -z "$PIDS" ];then
+        echo "bitmain_logrotate Start"
+        /usr/bin/bitmain_logrotate &
+    else
+        echo "The bitmain_logrotate Process Has Been Started"
+    fi
+}
+
+do_logrotate_restart()
+{
+    do_logrotate_stop
+    do_logrotate_start
+}
+
+do_stop() {
+        start-stop-daemon --stop --exec $DAEMON || true
+        start-stop-daemon --stop --exec $DAEMON1 || true
+        start-stop-daemon --stop --exec $DAEMON2 || true
+        sleep 50
+}
+case "$1" in
+  start)
+        echo -n "Starting $DESC: "
+        do_logrotate_start
+        do_start
+        echo "$NAME."
+        ;;
+  stop)
+        echo -n "Stopping $DESC: "
+		do_stop
+		do_logrotate_stop
+        echo "$NAME."
+        ;;
+  restartlog)
+        echo -n "Restarting $DESC: "
+        do_logrotate_restart
+        echo "$NAME."
+        ;;
+  restart|force-reload)
+        echo -n "Restarting $DESC: "
+        do_stop
+        do_start
+        echo "$NAME."
+        ;;
+  *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
