@@ -200,16 +200,79 @@ def extractXilinxGzipFiles(basePath: str):
 
 def extractAmlDatafileImages(basePath: str):
     """
-    Extract U-Boot FIT images (datafile files).
-    These are Flattened Image Tree (FIT) format files containing:
-    - Linux kernel
-    - Device tree blob (DTB)
-    - Ramdisk (usually gzip compressed)
+    Extract Amlogic Android boot images (datafile files).
+    These are Android boot image format files containing:
+    - Linux kernel (zImage)
+    - Ramdisk (initrd.img - usually gzip compressed cpio archive)
+    - Second stage image (stage2.img)
+
+    Handles both encrypted (AMLSECU!) and unencrypted Android boot images.
+    If AMLSECU! signature is detected at offset 0x400, the image is decrypted
+    first using aml_decrypt before extraction.
     """
     datafileImages = glob.glob(f"{basePath}/**/datafile", recursive=True)
+    aml_decrypt_tool = "/home/danielsokil/Lab/Alex20129/aml_decrypt/build/aml_decrypt"
+
     for image in datafileImages:
-        print(f"Processing FIT image: {image}")
+        print(f"Processing image: {image}")
         imageDir = os.path.dirname(image)
+
+        # Check for AMLSECU! signature at offset 0x400 (1024 bytes)
+        is_encrypted = False
+        try:
+            with open(image, "rb") as f:
+                f.seek(0x400)
+                magic = f.read(8)
+                if magic == b"AMLSECU!":
+                    is_encrypted = True
+                    print("  -> Detected AMLSECU! encrypted image")
+        except Exception as e:
+            print(f"  -> Error checking encryption: {e}")
+            continue
+
+        # Decrypt if needed
+        abs_image = os.path.abspath(os.path.normpath(image))
+        if is_encrypted:
+            print("  -> Decrypting image...")
+            try:
+                result = subprocess.run(
+                    [
+                        aml_decrypt_tool,
+                        "datafile",
+                    ],
+                    cwd=imageDir,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    print(f"  -> Decryption failed: {result.stderr}")
+                    continue
+
+                # Check if decrypted section files were created
+                section0 = os.path.join(imageDir, "datafile_section_0_decrypted.bin")
+                section1 = os.path.join(imageDir, "datafile_section_1_decrypted.bin")
+                section2 = os.path.join(imageDir, "datafile_section_2_decrypted.bin")
+
+                if not (os.path.exists(section0) and os.path.exists(section1)):
+                    print("  -> Decryption failed: section files not created")
+                    continue
+
+                print("  -> Decryption successful")
+                print(
+                    f"     - {os.path.basename(section0)} ({os.path.getsize(section0)} bytes)"
+                )
+                print(
+                    f"     - {os.path.basename(section1)} ({os.path.getsize(section1)} bytes)"
+                )
+                if os.path.exists(section2):
+                    print(
+                        f"     - {os.path.basename(section2)} ({os.path.getsize(section2)} bytes)"
+                    )
+
+            except Exception as e:
+                print(f"  -> Error during decryption: {e}")
+                continue
 
         # Create extraction directory
         extractDir = os.path.join(imageDir, "datafile_extracted")
@@ -219,85 +282,99 @@ def extractAmlDatafileImages(basePath: str):
             print(f"Failed to create directory {extractDir}: {e}")
             continue
 
-        # Extract all components from FIT image
-        abs_image = os.path.abspath(os.path.normpath(image))
         abs_extract_dir = os.path.abspath(os.path.normpath(extractDir))
 
         try:
-            # Extract kernel (component 0)
-            subprocess.run(
-                [
-                    "dumpimage",
-                    "-T",
-                    "flat_dt",
-                    "-p",
-                    "0",
-                    "-o",
-                    os.path.join(abs_extract_dir, "kernel.bin"),
-                    abs_image,
-                ],
-                cwd=imageDir,
-                check=False,
-            )
-            print("  -> Extracted kernel.bin")
+            if is_encrypted:
+                # For encrypted images, decrypted sections are already separate files
+                print("  -> Organizing decrypted components...")
 
-            # Extract device tree (component 1)
-            subprocess.run(
-                [
-                    "dumpimage",
-                    "-T",
-                    "flat_dt",
-                    "-p",
-                    "1",
-                    "-o",
-                    os.path.join(abs_extract_dir, "devicetree.dtb"),
-                    abs_image,
-                ],
-                cwd=imageDir,
-                check=False,
-            )
-            print("  -> Extracted devicetree.dtb")
+                # Copy/rename decrypted sections to extraction directory
+                section0 = os.path.join(imageDir, "datafile_section_0_decrypted.bin")
+                section1 = os.path.join(imageDir, "datafile_section_1_decrypted.bin")
+                section2 = os.path.join(imageDir, "datafile_section_2_decrypted.bin")
 
-            # Extract ramdisk (component 2)
-            ramdisk_path = os.path.join(abs_extract_dir, "ramdisk.cpio.gz")
-            subprocess.run(
-                [
-                    "dumpimage",
-                    "-T",
-                    "flat_dt",
-                    "-p",
-                    "2",
-                    "-o",
-                    ramdisk_path,
-                    abs_image,
-                ],
-                cwd=imageDir,
-                check=False,
-            )
-            print("  -> Extracted ramdisk.cpio.gz")
+                import shutil
 
-            # Extract ramdisk filesystem
-            ramdisk_fs_dir = os.path.join(abs_extract_dir, "ramdisk_fs")
-            os.makedirs(ramdisk_fs_dir, exist_ok=True)
+                if os.path.exists(section0):
+                    shutil.copy2(section0, os.path.join(abs_extract_dir, "zImage"))
+                    print("     - zImage")
 
-            # Decompress and extract cpio archive
-            gunzip_proc = subprocess.Popen(
-                ["gunzip", "-c", ramdisk_path],
-                stdout=subprocess.PIPE,
-                cwd=ramdisk_fs_dir,
-            )
-            subprocess.run(
-                ["cpio", "-idmv"],
-                stdin=gunzip_proc.stdout,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                cwd=ramdisk_fs_dir,
-            )
-            gunzip_proc.wait()
-            print("  -> Extracted ramdisk filesystem to ramdisk_fs/")
+                if os.path.exists(section1):
+                    ramdisk_path = os.path.join(abs_extract_dir, "initrd.img")
+                    shutil.copy2(section1, ramdisk_path)
+                    print("     - initrd.img")
+
+                if os.path.exists(section2):
+                    shutil.copy2(section2, os.path.join(abs_extract_dir, "stage2.img"))
+                    print("     - stage2.img")
+
+            else:
+                # For unencrypted images, use abootimg to extract
+                result = subprocess.run(
+                    [
+                        "abootimg",
+                        "-x",
+                        abs_image,
+                        os.path.join(abs_extract_dir, "bootimg.cfg"),
+                    ],
+                    cwd=abs_extract_dir,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+
+                if result.returncode != 0:
+                    print(f"  -> Extraction failed: {result.stderr[:200]}")
+                    continue
+
+                print("  -> Extracted boot image components:")
+                extracted_files = os.listdir(abs_extract_dir)
+                for f in extracted_files:
+                    print(f"     - {f}")
+
+            # Extract ramdisk filesystem if initrd.img exists
+            ramdisk_path = os.path.join(abs_extract_dir, "initrd.img")
+            if os.path.exists(ramdisk_path):
+                ramdisk_fs_dir = os.path.join(abs_extract_dir, "ramdisk_fs")
+                os.makedirs(ramdisk_fs_dir, exist_ok=True)
+
+                print("  -> Extracting ramdisk filesystem...")
+                # Try to decompress and extract cpio archive
+                try:
+                    gunzip_proc = subprocess.Popen(
+                        ["gunzip", "-c", ramdisk_path],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        cwd=ramdisk_fs_dir,
+                    )
+                    subprocess.run(
+                        ["cpio", "-idmv"],
+                        stdin=gunzip_proc.stdout,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        cwd=ramdisk_fs_dir,
+                    )
+                    gunzip_proc.wait()
+
+                    # Check if extraction was successful by checking directory contents
+                    if os.listdir(ramdisk_fs_dir):
+                        print("  -> Extracted ramdisk filesystem to ramdisk_fs/")
+                        # Show some extracted contents
+                        items = os.listdir(ramdisk_fs_dir)[:5]
+                        for item in items:
+                            print(f"     - {item}")
+                        if len(os.listdir(ramdisk_fs_dir)) > 5:
+                            print(
+                                f"     ... and {len(os.listdir(ramdisk_fs_dir)) - 5} more items"
+                            )
+                    else:
+                        print("  -> Could not extract ramdisk (may not be cpio format)")
+                except Exception as e:
+                    print(f"  -> Could not extract ramdisk filesystem: {e}")
 
         except Exception as e:
-            print(f"Error extracting {image}: {e}")
+            print(f"  -> Error extracting {image}: {e}")
             continue
 
 
@@ -562,8 +639,8 @@ if __name__ == "__main__":
     # extractBmuUpdateFiles(processPath)
     # removeXilinxUImageHeaders(processPath)
     # extractXilinxGzipFiles(processPath)
-    extractXilinxLinuxImages(processPath)
-    # extractAmlDatafileImages(processPath)
+    # extractXilinxLinuxImages(processPath)
+    extractAmlDatafileImages(processPath)
     # extractBootBin(processPath)
     # removeCVITEKHeaders(processPath)
     # extractCVITEKGzipFiles(processPath)

@@ -1,0 +1,231 @@
+#!/bin/sh
+
+LOG_PATH=/var/log
+NAND_LOG_PATH=/nvdata
+BITMIAN_LOGROTATE=true
+
+trap 'BITMIAN_LOGROTATE=false' 15
+
+#根据时间戳删除较早的log
+del_log_file()
+{
+    local log_dir_lists=`ls -dtr /nvdata/[0-9][0-9][0-9][0-9]-[0-9][0-9]/[0-9][0-9]/cglog_[a-z]* 2>/dev/null`
+    
+    for log_dir in $log_dir_lists
+    do
+        if [ ! -z $log_dir ];then
+            rm -rf $log_dir
+            break
+        fi
+    done    
+}
+
+#删除无效的符号连接
+del_log_link_file()
+{
+    #检查是否存在无效的软连接，存在则删除
+    local log_dir_link_files=`find $NAND_LOG_PATH -type l`
+    for log_dir_link_file in $log_dir_link_files
+    do
+        if [ ! -e "$log_dir_link_file" ];then
+            rm -rf $log_dir_link_file
+        fi
+    done
+}
+
+#删除空的文件夹
+del_empty_folder()
+{
+    cd $NAND_LOG_PATH
+    
+    local dd_dir_lists=`ls -dtr [0-9][0-9][0-9][0-9]-[0-9][0-9]/[0-9][0-9] 2>/dev/null`
+    
+    for dd_dir in $dd_dir_lists
+    do
+        rmdir -p $dd_dir 2>/dev/null
+    done
+    
+    local yyyy_mm_dir_lists=`ls -dtr [0-9][0-9][0-9][0-9]-[0-9][0-9] 2>/dev/null`
+    
+    for yyyy_mm_dir in $yyyy_mm_dir_lists
+    do
+        rmdir -p $yyyy_mm_dir 2>/dev/null
+    done
+}
+
+check_size()
+{
+    local threshold1_percentage=75
+    local threshold2_percentage=60
+    
+    local used=`df -k | grep "nvdata" | awk '{print $5}'|sed "s/%//g"`
+    
+    #检测nvdata占用率是否超过75%
+    while [ $used -gt $threshold1_percentage ] && $BITMIAN_LOGROTATE
+    do
+        #删除到nvdata占用率小于60%停止
+        while [ $used -gt $threshold2_percentage ] && $BITMIAN_LOGROTATE 
+        do
+            
+            del_log_file
+            del_log_link_file
+            del_empty_folder
+            
+            used=`df -k | grep "nvdata" | awk '{print $5}'|sed "s/%//g"`
+            
+            usleep 100000
+        done
+    done
+}
+
+get_sys_time()
+{
+    CURRENT_SYS_TIME=`date '+%Y-%m-%d %H-%M-%S'`
+    DATE=`echo $CURRENT_SYS_TIME | awk '{print $1}'`
+    YEAR=`echo $DATE | awk -F '-' '{print $1}'`
+    MONTH=`echo $DATE | awk -F '-' '{print $2}'`
+    DAY=`echo $DATE | awk -F '-' '{print $3}'`
+    TIME=`echo $CURRENT_SYS_TIME | awk '{print $2}'`
+}
+
+#Start
+#检测/nvdata是否存在
+if [ ! -d $NAND_LOG_PATH ];then
+    echo "No nvdata path Error" >> /tmp/bitmain_logrotate.log
+    exit 1
+fi
+
+check_size
+get_sys_time
+LAST_DATE=$DATE
+
+LOG_DATE_PATH=$NAND_LOG_PATH/$YEAR"-"$MONTH/$DAY/"cglog_init_"$DATE"_"$TIME
+
+#检查是否有重名的文件夹
+if [ -d $LOG_DATE_PATH ];then
+    path_name_index=1
+    path_name=$LOG_DATE_PATH"."$path_name_index
+    while $BITMIAN_LOGROTATE
+    do
+        if [ -d $path_name ];then
+            path_name_index=`expr $path_name_index + 1`
+            path_name=$LOG_DATE_PATH"."$path_name_index
+        else
+            LOG_DATE_PATH=$path_name
+            break;
+        fi
+    done
+fi
+
+#建立指向/var/log的链接
+mkdir -p $LOG_DATE_PATH && ln -snf $LOG_DATE_PATH $LOG_PATH && sync
+
+if [ $? != 0 ];then
+    echo "Create log dir Error" >> /tmp/bitmain_logrotate.log
+    exit 1
+fi
+
+#同步dmesg
+dmesg > $LOG_DATE_PATH/dmesg.log && sync 
+
+#日期改变进行一次link
+while $BITMIAN_LOGROTATE
+do
+    check_size
+    
+    if [ $BITMIAN_LOGROTATE == false ];then
+        break
+    fi
+    
+    get_sys_time
+
+    #检查当前保存日志的文件夹是否存在，不存在则建立一个新的，然后重新链接/var/log
+    if [ ! -d $LOG_DATE_PATH ]; then
+    
+        LOG_DATE_PATH=$NAND_LOG_PATH/$YEAR"-"$MONTH/$DAY/"cglog_init_"$DATE"_"$TIME
+    
+        #检查是否有重名文件夹，如果有重命名
+        if [ -d $LOG_DATE_PATH ];then
+            path_name_index=1
+            path_name=$LOG_DATE_PATH"."$path_name_index
+            
+            while $BITMIAN_LOGROTATE
+            do
+                if [ -d $path_name ];then
+                    path_name_index=`expr $path_name_index + 1`
+                    path_name=$LOG_DATE_PATH"."$path_name_index
+                else
+                    LOG_DATE_PATH=$path_name
+                    break;
+                fi
+            done
+        fi
+        
+        mkdir -p $LOG_DATE_PATH && ln -snf $LOG_DATE_PATH $LOG_PATH && sync        
+        
+        if [ $? != 0 ];then
+            echo "Create log dir Error" >> /tmp/bitmain_logrotate.log
+            exit 1
+        fi
+    fi
+ 
+    #检查是否存在无效的软连接，存在则删除
+    #LINK_FILES=`find $NAND_LOG_PATH -type l`
+    #for file in $LINK_FILES
+    #do
+    #    link_file_exists=`readlink -f $file`
+    #    if [ -z $link_file_exists ];then
+    #        rm -rf $file
+    #    fi
+    #done
+  
+    #日期改变，做一次link
+    if [ $LAST_DATE != $DATE ];then
+    
+        touch $LOG_DATE_PATH
+        
+        LINK_PATH=$NAND_LOG_PATH/$YEAR"-"$MONTH/$DAY
+        
+        if [ ! -d $LINK_PATH ]; then
+            mkdir -p $LINK_PATH
+            
+            if [ $? != 0 ];then
+                echo "Create link dir Error" >> /tmp/bitmain_logrotate.log
+                exit 1
+            fi            
+        fi
+        
+        LINK_FILE=$LINK_PATH/"cglog_init_"$DATE"_"$TIME
+
+        if [ -L $LINK_FILE ];then
+            path_name_index=1
+            path_name=$LINK_FILE"."$path_name_index
+            
+            while $BITMIAN_LOGROTATE
+            do
+                if [ -L $path_name ];then
+                    path_name_index=`expr $path_name_index + 1`
+                    path_name=$LINK_FILE"."$path_name_index
+                else
+                    LINK_FILE=$path_name
+                    break;
+                fi
+            done
+        fi        
+        mkdir -p $LINK_FILE
+        
+        all_log_files=`ls $LOG_DATE_PATH`
+        for log_file in $all_log_files
+        do   
+            ln  $LOG_DATE_PATH/$log_file $LINK_FILE/$log_file
+        done
+        
+        dmesg > $LOG_DATE_PATH/dmesg.log && sync 
+    fi
+    
+    LAST_DATE=$DATE
+    
+    sleep 1
+done
+
+echo "bitmain logrotate Exit" >> /tmp/bitmain_logrotate.log

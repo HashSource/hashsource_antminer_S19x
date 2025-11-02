@@ -1,0 +1,255 @@
+#!/bin/sh
+LOG_FILE=/tmp/mount-err.log
+
+function mount_ubifs()
+{
+    local ubi_ix=$1
+    local mount_point=$2
+    echo "mount $mount_point"
+    mkdir  -p $mount_point
+    mount -t ubifs /dev/ubi${ubi_ix}_0 $mount_point > /dev/null
+    ret=$?
+    if [ $ret -ne 0 ];then
+        echo "mount $mount_point failed!!!" >> ${LOG_FILE}
+    fi
+    return $ret
+}
+
+function prepare_ubifs()
+{
+    local mtd_ix=$1
+    local ubi_ix=$2
+    local mpoint=$3
+    local nname=$4
+    ubiattach /dev/ubi_ctrl -m ${mtd_ix} -b 2 -d ${ubi_ix} > /dev/null
+    if [ $? -eq 0 ];then
+        if [ -c /dev/ubi${ubi_ix}_0 ];then
+            mount_ubifs  ${ubi_ix} ${mpoint}
+        else
+            ubimkvol /dev/ubi${ubi_ix} -m -N ${nname} > /dev/null
+            if [ $? -ne 0 ];then
+                echo "ubimkval failed !!!" > $(LOG_FILE)
+            else
+                mount_ubifs  ${ubi_ix} ${mpoint}
+            fi
+        fi
+    else
+        flash_erase /dev/mtd${mtd_ix} 0x0 0x0 > /dev/null
+        ubiformat /dev/mtd${mtd_ix} -y > /dev/null
+        if [ $? -ne 0 ];then
+            echo "ubiformat failed !!!" >> ${LOG_FILE}
+        else
+            ubiattach /dev/ubi_ctrl -m ${mtd_ix} -b 2 -d ${ubi_ix} > /dev/null
+            if [ $? -eq 0 ];then
+                ubimkvol /dev/ubi${ubi_ix} -m -N ${nname} > /dev/null
+                if [ $? -ne 0 ];then
+                    echo "ubimkval failed after ubiformat !!!" >> ${LOG_FILE}
+                else
+                    mount_ubifs  ${ubi_ix} ${mpoint}
+                fi
+            else
+                echo "ubiattach failed after ubiformat" >> ${LOG_FILE}
+            fi
+        fi
+    fi
+}
+
+function pinmux_init()
+{
+    ################################################################################
+    # set GPIO
+    ################################################################################
+    ## GPIO_RECOVERY  446
+    echo 446 > /sys/class/gpio/export
+    echo in > /sys/class/gpio/gpio446/direction
+    ## GPIO_IP_GET    445
+    echo 445 > /sys/class/gpio/export
+    echo in > /sys/class/gpio/gpio445/direction
+    ## PWR_EN         437
+    echo 437 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio437/direction
+
+    ## CH0_PLUG 439
+    echo 439 > /sys/class/gpio/export
+    echo in > /sys/class/gpio/gpio439/direction
+    echo down > /sys/class/gpio/gpio439/pull
+    ## CH1_PLUG 440
+    echo 440 > /sys/class/gpio/export
+    echo in > /sys/class/gpio/gpio440/direction
+    echo down > /sys/class/gpio/gpio440/pull
+    ## CH2_PLUG 441
+    echo 441 > /sys/class/gpio/export
+    echo in > /sys/class/gpio/gpio441/direction
+    echo down > /sys/class/gpio/gpio441/pull
+
+    ## CH0_RST 454
+    echo 454 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio454/direction
+    ## CH1_RST 455
+    echo 455 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio455/direction
+    ## CH1_RST 456
+    echo 456 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio456/direction
+
+    ## GPIO_LED_GREEN 453
+    echo 453 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio453/direction
+    ## GPIO_LED_RED 438
+    echo 438 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio438/direction
+
+    # FAN_FRONT_SPEED0: 447
+    if [ ! -d /sys/class/gpio/gpio447 ]; then
+        echo 447 > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio447/direction
+        echo falling > /sys/class/gpio/gpio447/edge
+    fi
+
+    # FAN_FRONT_SPEED1: 448
+    if [ ! -d /sys/class/gpio/gpio448 ]; then
+        echo 448 > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio448/direction
+        echo falling > /sys/class/gpio/gpio448/edge
+    fi
+
+    # FAN_REAR_SPEEP0: 449
+    if [ ! -d /sys/class/gpio/gpio449 ]; then
+        echo 449 > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio449/direction
+        echo falling > /sys/class/gpio/gpio449/edge
+    fi
+
+    # FAN_REAR_SPEEP1: 450
+    if [ ! -d /sys/class/gpio/gpio450 ]; then
+        echo 450 > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio450/direction
+        echo falling > /sys/class/gpio/gpio450/edge
+    fi
+
+    ## enable pwm[8] rear fan FAN2 FAN4
+    echo 0 > /sys/class/pwm/pwmchip0/export
+    echo 100000 > /sys/class/pwm/pwmchip0/pwm0/period
+    echo 100000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle
+    echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable
+
+    ## enable pwm[9] front fan,  FAN1 FAN3
+    echo 1 > /sys/class/pwm/pwmchip0/export
+    echo 100000 > /sys/class/pwm/pwmchip0/pwm1/period
+    echo 100000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle
+    echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable
+
+    ## power off hashboard
+    echo 1 >  /sys/class/gpio/gpio437/value 
+}
+
+function mount_config()
+{
+    check0p5=`cat /etc/mtab | grep "ubi0"`
+    if [ ""x == "$check0p5"x ] ; then
+        echo "mounting config"
+        prepare_ubifs 5 0 /config config_data
+    else
+        echo "mount /config already"
+    fi
+
+    check0p6=`cat /etc/mtab | grep "ubi2"`
+    if [ ""x == "$check0p6"x ] ; then
+        echo "mounting /nvdata as nvdata"
+        prepare_ubifs 6 2 /nvdata nvdada_log
+    else
+        echo "mount /nvdata already"
+    fi
+    mkdir -p /nvdata/log/miner
+    ln -s /nvdata/log/miner /tmp/miner
+    sync
+}
+
+function sync_config()
+{
+    ###########################
+
+    # No configuration, create it!
+    if [ ! -f /config/cgminer.conf ] ; then
+        if [ -f /etc/cgminer.conf.factory ];then
+            cp /etc/cgminer.conf.factory /config/cgminer.conf
+            chown www-data:www-data /config/cgminer.conf
+            chmod 755 /config/cgminer.conf
+        fi
+    fi
+
+    if [ ! -f /config/network.conf ] ; then
+        if [ -f /etc/network.conf.factory ];then
+            cp /etc/network.conf.factory /config/network.conf
+            chown www-data:www-data /config/network.conf
+            chmod 755 /config/network.conf
+        fi
+    fi
+    ###########################
+
+    # httpdpasswd
+    if [ ! -f /config/lighttpd-htdigest.user ] ; then
+        if [ -f /etc/lighttpd/lighttpd-htdigest.user ];then
+            cp /etc/lighttpd/lighttpd-htdigest.user /config/lighttpd-htdigest.user
+            chown www-data:www-data /config/lighttpd-htdigest.user
+            chmod 755 /config/lighttpd-htdigest.user
+        fi
+    fi
+    if [ -f /etc/lighttpd.proxy ];then
+        cat /etc/lighttpd.proxy >> /etc/lighttpd/lighttpd.conf
+        rm /etc/lighttpd.proxy
+    fi
+    # shadow
+    if [ ! -f /config/shadow ] ; then
+        cp -p /etc/shadow.factory /config/shadow
+        chmod 0400 /config/shadow
+        rm -f /etc/shadow
+        ln -s /config/shadow /etc/shadow
+    else
+        rm -f /etc/shadow
+        ln -s /config/shadow /etc/shadow
+    fi
+
+    #passwd
+    if [ ! -f /config/passwd ];then
+        cp -p /etc/passwd /config/passwd
+        chmod 0644 /config/passwd
+        rm -f /etc/passwd
+        ln -s /config/passwd /etc/passwd
+    else
+        rm -f /etc/passwd
+        ln -s /config/passwd /etc/passwd
+    fi
+    ###########################
+    sync &
+}
+
+function do_start()
+{
+    mount_config
+    pinmux_init
+    sync_config
+
+    # miner log
+    mkdir -p /tmp/miner
+}
+
+function do_stop()
+{
+    sync
+    umount /config
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac
+
