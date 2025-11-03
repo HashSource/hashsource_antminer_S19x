@@ -628,7 +628,7 @@ if __name__ == "__main__":
 
     # processPath = "./"
     # processPath = "./FR-1.80(250924-S21-XP).bmu"
-    processPath = "./"
+    processPath = "./FR-1.28(251010-S19k Pro)"
 
     # extractZipFiles(processPath)
     # extractTarGzFiles(processPath)
@@ -640,7 +640,7 @@ if __name__ == "__main__":
     # removeXilinxUImageHeaders(processPath)
     # extractXilinxGzipFiles(processPath)
     # extractXilinxLinuxImages(processPath)
-    extractAmlDatafileImages(processPath)
+    # extractAmlDatafileImages(processPath)
     # extractBootBin(processPath)
     # removeCVITEKHeaders(processPath)
     # extractCVITEKGzipFiles(processPath)

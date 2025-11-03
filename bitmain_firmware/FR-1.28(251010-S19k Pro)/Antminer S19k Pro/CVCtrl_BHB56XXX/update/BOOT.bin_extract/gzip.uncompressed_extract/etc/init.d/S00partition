@@ -1,0 +1,68 @@
+#! /bin/sh
+
+function part_mmcblk0p7()
+{
+    if [ -e /dev/mmcblk0p7 ];then
+        echo "mmcblk0p7 exist"
+        return
+    fi
+    
+    if [ ! -e /usr/sbin/gdisk ];then
+        echo "gdisk no exist"
+        return
+    fi
+    
+    echo -e "n\n7\n\n+1024M\n0700\nw\ny\ny" | gdisk /dev/mmcblk0
+    sleep 3
+    echo "reboot now"
+    reboot -f
+}
+
+case $1 in
+  start)
+    # Eanble Hotplug
+    echo /sbin/mdev >/proc/sys/kernel/hotplug
+    mdev -s
+    sleep 3
+    # set SCHED_RR timeslice to 20ms
+    echo 20 > /proc/sys/kernel/sched_rr_timeslice_ms
+    #
+    if [ -e /dev/mmcblk0 ]; then
+        part_mmcblk0p7
+        e2fsck -y /dev/mmcblk0p5
+        e2fsck -y /dev/mmcblk0p6
+        e2fsck -y /dev/mmcblk0p7
+        mkdir -p /tmp/miner
+        mkdir -p /config
+        mkdir -p /nvdata
+        mount -t ext4 -o sync /dev/mmcblk0p5 /config 
+        if [ $? -ne 0  ]; then
+            echo 'Mount /config failed, Try formatting and remounting'
+            mke2fs -T ext4 /dev/mmcblk0p5
+            mount -t ext4 -o sync /dev/mmcblk0p5 /config
+            resize2fs /dev/mmcblk0p5
+        fi
+
+        mount -t ext4 -o sync /dev/mmcblk0p6 /tmp/miner
+        if [ $? -ne 0  ]; then
+            echo 'Mount /tmp/miner failed, Try formatting and remounting'
+            mke2fs -T ext4 /dev/mmcblk0p6
+            mount -t ext4 -o sync /dev/mmcblk0p6 /tmp/miner
+            resize2fs /dev/mmcblk0p6
+        fi
+
+        mount -t ext4 -o sync /dev/mmcblk0p7 /nvdata
+        if [ $? -ne 0  ]; then
+            echo 'Mount /nvdata failed, Try formatting and remounting'
+            mke2fs -T ext4 /dev/mmcblk0p7
+            mount -t ext4 -o sync /dev/mmcblk0p7 /nvdata
+            resize2fs /dev/mmcblk0p7
+        fi
+
+    else
+        sleep 3
+        echo "EMMC storage maybe crashed! Try to format it!"
+        exit 2
+    fi
+    ;;
+esac

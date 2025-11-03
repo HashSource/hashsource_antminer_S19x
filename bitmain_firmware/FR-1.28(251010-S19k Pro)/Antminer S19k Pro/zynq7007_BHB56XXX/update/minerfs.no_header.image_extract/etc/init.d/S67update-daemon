@@ -1,0 +1,23 @@
+#!/bin/sh -e
+function do_start()
+{
+    /usr/sbin/daemons &
+}
+
+function do_stop()
+{
+    exit 0
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac

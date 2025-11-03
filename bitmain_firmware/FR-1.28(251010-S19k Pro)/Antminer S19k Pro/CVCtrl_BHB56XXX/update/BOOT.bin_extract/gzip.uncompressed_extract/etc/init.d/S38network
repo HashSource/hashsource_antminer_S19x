@@ -1,0 +1,91 @@
+#!/bin/sh 
+
+CPUID=$(hexdump -n20 -e '32/1 "%02x"' /sys/class/cvi-base/base_efuse_shadow | dd skip=24 count=16 bs=1 2>&-)
+export CPUID
+
+do_start()
+{
+    /sbin/ifconfig eth0 up
+    ValidHostnameRegex="^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9])$"
+    ValidIpAddress="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
+    if [ -s /config/network.conf ] ; then
+        dhcp=$(cat /config/network.conf | grep dhcp |awk -F '=' '{print $2}')
+        if [ "$dhcp" = "" ] ; then
+            echo "static mode"
+            ipaddress=$(cat /config/network.conf | grep ipaddress |awk -F '=' '{print $2}'|grep -o "$ValidIpAddress")
+            gateway=$(cat /config/network.conf | grep gateway |awk -F '=' '{print $2}'|grep -o "$ValidIpAddress")
+            netmask=$(cat /config/network.conf | grep netmask |awk -F '=' '{print $2}'|grep -o "$ValidIpAddress")
+            dnsservers=$(cat /config/network.conf | grep dnsservers |awk -F '=' '{print $2}')
+            echo $ipaddress  $gateway $netmask $dnsservers
+        else
+            dhcp=true
+        fi
+        hostname=$(cat /config/network.conf | grep hostname |awk -F '=' '{print $2}'|grep -e "$ValidHostnameRegex")
+    else
+        dhcp=true
+        hostname=Antminer
+    fi
+    
+    if [ -n "$hostname" ] ; then
+        hostname $hostname
+        echo $hostname > /etc/hostname
+        chmod 766 /etc/hostname
+    fi
+    
+
+    if [ ! -f /config/mac ] ; then
+        mac=$(id2mac)
+        echo $mac > /config/mac
+        sync
+    else
+        mac=$(cat /config/mac | grep -o  "[a-f0-9A-F]\\([a-f0-9A-F]\\:[a-f0-9A-F]\\)\\{5\\}[a-f0-9A-F]")
+         if [ -z $mac ] ; then
+            mac=$(id2mac)
+            echo $mac > /config/mac
+            sync
+        fi
+    fi
+
+    # Setup link 
+    ip link set lo up
+    ip link set eth0 down
+    ip link set dev eth0 address ${mac}
+    ip link set eth0 up
+    ip addr flush dev eth0
+
+    if [ "$dhcp" = "true" ] ; then
+        udhcpc -b -t 10 -A 10 -x hostname:$hostname -i eth0 &
+    else
+        # Manual setup
+        ip addr add $ipaddress/$netmask dev eth0
+        ip ro add default via $gateway
+        for ip in $dnsservers ; do
+            dns=$(echo $ip|grep -o "$ValidIpAddress")
+            if [ -n "$dns" ]; then
+                echo nameserver $ip >> /etc/resolv.conf
+            fi
+        done
+    fi
+}
+
+do_stop()
+{
+    killall -9 udhcpc
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    restart)
+        do_stop
+        do_start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac

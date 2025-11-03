@@ -1,0 +1,168 @@
+#!/bin/sh
+LOG_FILE=/tmp/mount-err.log
+ret=0
+
+function mount_ubifs()
+{
+    local ubi_ix=$1
+    local mount_point=$2
+    echo "mount $mount_point"
+    mkdir  -p $mount_point
+    mount -t ubifs /dev/ubi${ubi_ix}_0 $mount_point > /dev/null
+    ret=$?
+    if [ $ubi_ix -eq 1 ];then
+        return $ret
+    fi
+    if [ $ret -ne 0 ];then
+        echo "mount $mount_point failed!!!" >> ${LOG_FILE}
+        return 40
+    else
+        mkdir  /updatefs
+        cp $mount_point/* /updatefs/update.bmu
+        /etc/init.d/Update.sh /updatefs/
+        rm -rf /updatefs
+        ret=$?
+        return $ret
+    fi
+}
+
+function mount_mmc()
+{
+    echo "mount mmc"
+    mkdir -p /mnt/mmc
+    mkdir -p /updatefile
+    mount -t vfat /dev/mmcblk0p1 /mnt/mmc > /dev/null
+    if [ $? -eq 0 ];then
+        flash_erase /dev/mtd4 0x0 0x0 >/dev/null 2>&1
+        cp /mnt/mmc/bin/update.bmu /updatefile
+        /etc/init.d/Update.sh /updatefile
+        ret=$?
+        return $ret
+    else
+        echo "mount mmc failed" >> ${LOG_FILE}
+        return 30
+    fi
+}
+
+function prepare_ubifs()
+{
+    local mtd_ix=$1
+    local ubi_ix=$2
+    local mpoint=$3
+    ubiattach /dev/ubi_ctrl -m ${mtd_ix} -b 2 -d ${ubi_ix} > /dev/null
+    if [ $? -eq 0 ];then
+        if [ -c /dev/ubi${ubi_ix}_0 ];then
+            mount_ubifs  ${ubi_ix} ${mpoint}
+            ret=$?
+            return $ret
+        else
+            return 10
+        fi
+    else
+        return 20
+    fi
+}
+
+#gpio led
+red_led=941
+green_led=942
+function gpio_init()
+{
+    # Green
+    if [ ! -e /sys/class/gpio/gpio$green_led ]; then
+        echo $green_led > /sys/class/gpio/export
+    fi
+    echo out > /sys/class/gpio/gpio$green_led/direction
+
+    #Red
+    if [ ! -e /sys/class/gpio/gpio$red_led ]; then
+        echo $red_led > /sys/class/gpio/export
+    fi
+    echo out > /sys/class/gpio/gpio$red_led/direction
+}
+
+function led_blink()
+{
+    local flag=$1
+    if [ $flag -eq 0 ];then
+        echo 1 > /sys/class/gpio/gpio$green_led/value
+        echo 0 > /sys/class/gpio/gpio$red_led/value
+    else
+        echo 0 > /sys/class/gpio/gpio$green_led/value
+        echo 1 > /sys/class/gpio/gpio$red_led/value
+    fi
+    sleep 2
+}
+
+function clear_config()
+{
+    local flag=$1
+    if [ $flag -eq 0 ];then 
+        echo "clear config files except mac"
+        cd /config/
+        files=`ls /config/ | grep -v mac`
+        rm -rf $files
+        if [ -f mac ];then
+            chmod 755 mac
+        fi
+    else
+        echo "mount config failed,erase config partition"
+        flash_erase /dev/mtd2 0x0 0x0
+    fi
+}
+
+function clear_marker()
+{
+    #clen update marker
+    flash_erase /dev/mtd0 0x1B00000 0x1
+    dd if=/dev/urandom of=/tmp/tdata bs=512 count=1
+    nandwrite  -p -s 0x1B00000 /dev/mtd0 /tmp/tdata
+}
+
+function do_start()
+{
+    gpio_init
+    clear_marker
+    local reboot_flag=0
+    if [ -e /dev/mmcblk0 ];then
+        echo "detect mmc ,start sd2nand follow"
+        reboot_flag=0
+        prepare_ubifs 2 1 /config
+        ret=$?
+        clear_config $ret
+        mount_mmc
+        ret=$?
+    else
+        prepare_ubifs 6 0 /update_tmp
+        ret=$?
+        reboot_flag=1
+    fi
+    led_blink $ret
+    if [ $reboot_flag -eq 1 ];then
+        reboot -f
+    else
+        while true
+        do
+            led_blink $ret
+        done
+    fi
+}
+
+function do_stop()
+{
+    exit 0
+}
+
+case "$1" in
+    start|"")
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac
+

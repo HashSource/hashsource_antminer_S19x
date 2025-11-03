@@ -1,0 +1,38 @@
+#!/bin/sh
+#set -x
+function do_start()
+{
+        check_inter="20s"
+        while true; do
+        sleep $check_inter
+        #date
+        a="$(ps | grep cgminer | grep -v 'grep cgminer')"
+        if [ -z "$a" ] ; then
+            /etc/init.d/S70cgminer restart
+        fi
+        sleep 2
+        a="$(ps | grep bmminer | grep -v 'grep bmminer')"
+        if [ -z "$a" ] ; then
+            killall -9 cgminer
+            /etc/init.d/S70cgminer restart
+        fi
+        done
+}
+
+function do_stop()
+{
+        exit 0
+}
+
+case "$1" in
+    start|"")
+                do_start &
+        ;;
+    stop)
+                do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac
